@@ -1,28 +1,26 @@
-﻿using Cake.Core;
+﻿using System;
+using Cake.Core;
 using Cake.Core.Annotations;
+using Cake.Core.Diagnostics;
 using Cake.Core.IO;
 
 namespace Cake.Unity3d {
     public static class Build {
         [CakeMethodAlias]
-        public static void UnityBuild(this ICakeContext context, DirectoryPath projectPath, FilePath target, FilePath unity) {
-            var builder = new ProcessArgumentBuilder();
+        public static void UnityBuild(this ICakeContext context, Action<BuildSettings> buildSettingsAction) {
+            var buildSettings = new BuildSettings();
+            buildSettingsAction(buildSettings);
 
-            builder.Append("-batchmode");
-            builder.Append("-quit");
+            var valid = buildSettings.ValidateArguments(context);
+            if (!valid) {
+                throw new Exception("Invalid build settings");
+            }
 
-            builder.Append("-buildWindows64Player");
-            builder.AppendQuoted(target.MakeAbsolute(context.Environment).FullPath);
-
-            builder.Append("-projectPath");
-            builder.AppendQuoted(projectPath.MakeAbsolute(context.Environment).FullPath);
-
-            builder.Append("-logFile");
-            builder.AppendQuoted(projectPath.CombineWithFilePath(new FilePath("build.log")).FullPath);
-
+            var processArguments = buildSettings.GetProcessArguments(context);
+            
             var runner = new ProcessRunner(context.Environment,context.Log);
-            var settings = new ProcessSettings {Arguments = builder, RedirectStandardOutput = true, RedirectStandardError = true};
-            var process = runner.Start(unity, settings);
+            var settings = new ProcessSettings {Arguments = processArguments};
+            var process = runner.Start(buildSettings.Unity, settings);
             process.WaitForExit();
         }
     }
